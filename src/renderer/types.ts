@@ -15,6 +15,16 @@ export interface MediaFile {
   order: number;
 }
 
+export interface TimelineSegment {
+  id: string;
+  fileId: string;
+  startTime: number;      // Start time in the source file
+  endTime: number;        // End time in the source file
+  trackPosition: number;  // Position on timeline (seconds from start)
+  duration: number;       // Calculated duration (endTime - startTime)
+  file: MediaFile;        // Reference to source file
+}
+
 export interface AppSettings {
   theme: 'dark' | 'light';
   defaultOutputFolder: string;

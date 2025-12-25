@@ -55,17 +55,20 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
   const updateTime = useCallback(() => {
     if (mediaRef.current && isPlaying) {
       const time = mediaRef.current.currentTime;
-      setCurrentTime(time);
       
       // Auto-stop at end cut when playing selection
       if (playMode === 'selection' && time >= endCut) {
         mediaRef.current.pause();
-        mediaRef.current.currentTime = startCut;
-        setCurrentTime(startCut);
         setIsPlaying(false);
+        setCurrentTime(startCut);
+        if (mediaRef.current.currentTime !== startCut) {
+          mediaRef.current.currentTime = startCut;
+        }
         return;
       }
       
+      // Only update if time changed significantly (reduces updates)
+      setCurrentTime(time);
       animationFrameRef.current = requestAnimationFrame(updateTime);
     }
   }, [isPlaying, endCut, startCut, playMode]);
@@ -88,8 +91,14 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
       mediaRef.current.pause();
       setIsPlaying(false);
     } else {
-      mediaRef.current.play();
-      setIsPlaying(true);
+      // Ensure we're at the right position before playing
+      if (mediaRef.current.paused) {
+        mediaRef.current.play().catch(err => {
+          console.error('[ERROR] Playback failed:', err);
+          setIsPlaying(false);
+        });
+        setIsPlaying(true);
+      }
     }
   };
 
@@ -99,7 +108,10 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
     setPlayMode('selection');
     mediaRef.current.currentTime = startCut;
     setCurrentTime(startCut);
-    mediaRef.current.play();
+    mediaRef.current.play().catch(err => {
+      console.error('[ERROR] Playback failed:', err);
+      setIsPlaying(false);
+    });
     setIsPlaying(true);
   };
 
@@ -109,7 +121,10 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
     setPlayMode('fromStart');
     mediaRef.current.currentTime = startCut;
     setCurrentTime(startCut);
-    mediaRef.current.play();
+    mediaRef.current.play().catch(err => {
+      console.error('[ERROR] Playback failed:', err);
+      setIsPlaying(false);
+    });
     setIsPlaying(true);
   };
 
@@ -119,7 +134,10 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
     setPlayMode('full');
     mediaRef.current.currentTime = 0;
     setCurrentTime(0);
-    mediaRef.current.play();
+    mediaRef.current.play().catch(err => {
+      console.error('[ERROR] Playback failed:', err);
+      setIsPlaying(false);
+    });
     setIsPlaying(true);
   };
 
@@ -294,16 +312,23 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
             ref={videoRef}
             src={`file://${file.path}`}
             className="timeline-video"
-            onEnded={() => setIsPlaying(false)}
-            preload="auto"
+            onEnded={() => {
+              setIsPlaying(false);
+              setCurrentTime(0);
+            }}
+            preload="metadata"
+            playsInline
           />
         ) : (
           <>
             <audio
               ref={audioRef}
               src={`file://${file.path}`}
-              onEnded={() => setIsPlaying(false)}
-              preload="auto"
+              onEnded={() => {
+                setIsPlaying(false);
+                setCurrentTime(0);
+              }}
+              preload="metadata"
             />
             <div className="timeline-audio-viz">
               {waveformData ? (

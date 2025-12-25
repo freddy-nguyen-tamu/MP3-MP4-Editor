@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import FileList from './components/FileList';
 import Timeline from './components/Timeline';
-import Controls from './components/Controls';
+import MultiTrackTimeline from './components/MultiTrackTimeline';
 import ExportDialog from './components/ExportDialog';
 import SettingsDialog from './components/SettingsDialog';
 import Header from './components/Header';
-import { MediaFile, AppSettings, ExportHistoryItem, UndoState } from './types';
+import { MediaFile, AppSettings, ExportHistoryItem, UndoState, TimelineSegment } from './types';
 import { v4 as uuidv4 } from 'uuid';
 import './App.css';
 
@@ -28,6 +28,11 @@ function App() {
   const [undoStack, setUndoStack] = useState<UndoState[]>([]);
   const [redoStack, setRedoStack] = useState<UndoState[]>([]);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Multi-track timeline state
+  const [timelineSegments, setTimelineSegments] = useState<TimelineSegment[]>([]);
+  const [selectedSegment, setSelectedSegment] = useState<TimelineSegment | null>(null);
+  const [viewMode, setViewMode] = useState<'single' | 'multi'>('single'); // single file edit or multi-track arrange
 
   // Check API availability and load settings on mount
   useEffect(() => {
@@ -160,6 +165,49 @@ function App() {
     } catch (error) {
       console.error('Failed to load autosave:', error);
     }
+  };
+
+  // Create segments from files when entering multi-track mode
+  const createSegmentsFromFiles = () => {
+    let currentPosition = 0;
+    const newSegments: TimelineSegment[] = [];
+    
+    files.forEach((file, index) => {
+      const segment: TimelineSegment = {
+        id: uuidv4(),
+        fileId: file.id,
+        startTime: file.startCut,
+        endTime: file.endCut,
+        trackPosition: currentPosition,
+        duration: file.endCut - file.startCut,
+        file: file,
+      };
+      newSegments.push(segment);
+      currentPosition += segment.duration;
+    });
+    
+    setTimelineSegments(newSegments);
+  };
+  
+  // Switch between single and multi-track view
+  const handleToggleViewMode = () => {
+    if (viewMode === 'single') {
+      // Switch to multi-track: create segments from files
+      createSegmentsFromFiles();
+      setViewMode('multi');
+    } else {
+      // Switch back to single
+      setViewMode('single');
+      setSelectedSegment(null);
+    }
+  };
+  
+  const handleSegmentsChange = (updatedSegments: TimelineSegment[]) => {
+    setTimelineSegments(updatedSegments);
+  };
+  
+  const handleSegmentSelect = (segment: TimelineSegment | null) => {
+    setSelectedSegment(segment);
   };
 
   const handleFilesAdded = async (filePaths: string[]) => {
@@ -332,7 +380,13 @@ function App() {
   };
 
   const handleExportCut = () => {
-    setExportMode('cut');
+    if (viewMode === 'multi') {
+      // In multi-track mode, export arranged timeline
+      setExportMode('merge');
+    } else {
+      // In single mode, export cut selection
+      setExportMode('cut');
+    }
     setShowExportDialog(true);
   };
 
@@ -490,16 +544,43 @@ function App() {
         </div>
         
         <div className="main-panel">
-          {selectedFile ? (
-            <Timeline
-              file={selectedFile}
-              onCutChange={handleCutChange}
-            />
-          ) : (
-            <div className="empty-state">
-              <h2>No file selected</h2>
-              <p>Add files to get started</p>
+          {files.length > 0 && (
+            <div className="view-mode-toggle">
+              <button 
+                className={viewMode === 'single' ? 'active' : ''}
+                onClick={() => viewMode === 'multi' && handleToggleViewMode()}
+              >
+                Single File Edit
+              </button>
+              <button 
+                className={viewMode === 'multi' ? 'active' : ''}
+                onClick={() => viewMode === 'single' && handleToggleViewMode()}
+              >
+                Multi-Track Arrange
+              </button>
             </div>
+          )}
+          
+          {viewMode === 'single' ? (
+            selectedFile ? (
+              <Timeline
+                file={selectedFile}
+                onCutChange={handleCutChange}
+              />
+            ) : (
+              <div className="empty-state">
+                <h2>No file selected</h2>
+                <p>Add files to get started</p>
+              </div>
+            )
+          ) : (
+            <MultiTrackTimeline
+              files={files}
+              segments={timelineSegments}
+              onSegmentsChange={handleSegmentsChange}
+              onSegmentSelect={handleSegmentSelect}
+              selectedSegment={selectedSegment}
+            />
           )}
         </div>
       </div>
@@ -509,6 +590,7 @@ function App() {
           mode={exportMode}
           file={selectedFile}
           files={files}
+          segments={viewMode === 'multi' ? timelineSegments : undefined}
           onClose={() => setShowExportDialog(false)}
           onExportComplete={handleExportComplete}
         />

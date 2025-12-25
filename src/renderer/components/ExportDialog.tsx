@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { MediaFile } from '../types';
+import { MediaFile, TimelineSegment } from '../types';
 import './ExportDialog.css';
 
 interface ExportDialogProps {
   mode: 'cut' | 'merge';
   file: MediaFile | null;
   files: MediaFile[];
+  segments?: TimelineSegment[];
   onClose: () => void;
   onExportComplete: (outputPath: string, mode: 'cut' | 'merge') => void;
 }
@@ -14,6 +15,7 @@ export default function ExportDialog({
   mode,
   file,
   files,
+  segments,
   onClose,
   onExportComplete,
 }: ExportDialogProps) {
@@ -93,13 +95,27 @@ export default function ExportDialog({
           return;
         }
 
-        const inputs = files
-          .sort((a, b) => a.order - b.order)
-          .map(f => ({
-            path: f.path,
-            startTime: f.startCut > 0 ? f.startCut : undefined,
-            endTime: f.endCut < f.duration ? f.endCut : undefined,
-          }));
+        let inputs;
+        
+        if (segments && segments.length > 0) {
+          // Use timeline segments (multi-track mode)
+          inputs = segments
+            .sort((a, b) => a.trackPosition - b.trackPosition)
+            .map(seg => ({
+              path: seg.file.path,
+              startTime: seg.startTime,
+              endTime: seg.endTime,
+            }));
+        } else {
+          // Use files with their cuts (normal mode)
+          inputs = files
+            .sort((a, b) => a.order - b.order)
+            .map(f => ({
+              path: f.path,
+              startTime: f.startCut > 0 ? f.startCut : undefined,
+              endTime: f.endCut < f.duration ? f.endCut : undefined,
+            }));
+        }
 
         const settings = {
           normalizeAudio,
