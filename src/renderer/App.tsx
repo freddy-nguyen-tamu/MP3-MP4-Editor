@@ -20,6 +20,7 @@ function App() {
   const [files, setFiles] = useState<MediaFile[]>([]);
   const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null);
   const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [apiReady, setApiReady] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const [exportMode, setExportMode] = useState<'cut' | 'merge'>('cut');
@@ -28,10 +29,26 @@ function App() {
   const [redoStack, setRedoStack] = useState<UndoState[]>([]);
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load settings on mount
+  // Check API availability and load settings on mount
   useEffect(() => {
-    loadSettings();
-    loadAutosave();
+    console.log('Checking Electron API...');
+    console.log('window.electronAPI:', typeof window.electronAPI);
+    
+    if (window.electronAPI) {
+      console.log('✅ Electron API is available');
+      console.log('Available methods:', Object.keys(window.electronAPI));
+      setApiReady(true);
+      loadSettings();
+      loadAutosave();
+    } else {
+      console.error('❌ Electron API is NOT available!');
+      console.error('This usually means the preload script did not load correctly.');
+      setTimeout(() => {
+        if (!window.electronAPI) {
+          alert('Critical Error: Electron API not loaded.\n\nPlease close the app and restart with:\nnpm run dev');
+        }
+      }, 1000);
+    }
   }, []);
 
   // Apply theme
@@ -144,6 +161,12 @@ function App() {
   };
 
   const handleFilesAdded = async (filePaths: string[]) => {
+    if (!window.electronAPI) {
+      console.error('electronAPI not available!');
+      alert('Error: Electron API not loaded. Please restart the app.');
+      return;
+    }
+    
     const newFiles: MediaFile[] = [];
     const maxOrder = files.length > 0 ? Math.max(...files.map(f => f.order)) : -1;
     
@@ -406,6 +429,15 @@ function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [undoStack, redoStack, files, selectedFile]);
+
+  if (!apiReady) {
+    return (
+      <div className="app" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: '20px' }}>
+        <h2>Loading Electron API...</h2>
+        <p>If this persists, check the console for errors and restart the app.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
