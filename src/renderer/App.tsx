@@ -173,19 +173,29 @@ function App() {
     const newSegments: TimelineSegment[] = [];
     
     files.forEach((file, index) => {
+      const duration = Math.max(0.1, file.endCut - file.startCut); // Ensure minimum 0.1s duration
       const segment: TimelineSegment = {
         id: uuidv4(),
         fileId: file.id,
         startTime: file.startCut,
         endTime: file.endCut,
         trackPosition: currentPosition,
-        duration: file.endCut - file.startCut,
+        duration: duration,
         file: file,
       };
       newSegments.push(segment);
-      currentPosition += segment.duration;
+      currentPosition += duration;
+      
+      console.log('[INFO] Created segment:', {
+        name: file.name,
+        startTime: file.startCut,
+        endTime: file.endCut,
+        duration: duration,
+        trackPosition: segment.trackPosition
+      });
     });
     
+    console.log('[INFO] Created', newSegments.length, 'segments from', files.length, 'files');
     setTimelineSegments(newSegments);
   };
   

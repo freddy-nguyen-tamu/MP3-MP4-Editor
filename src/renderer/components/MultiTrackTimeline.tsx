@@ -20,6 +20,20 @@ interface MultiTrackTimelineProps {
   selectedSegment: TimelineSegment | null;
 }
 
+// Strong, distinct colors for segments
+const SEGMENT_COLORS = [
+  { bg: '#E53935', dark: '#C62828' },  // Red
+  { bg: '#1E88E5', dark: '#1565C0' },  // Blue
+  { bg: '#43A047', dark: '#2E7D32' },  // Green
+  { bg: '#FB8C00', dark: '#EF6C00' },  // Orange
+  { bg: '#8E24AA', dark: '#6A1B9A' },  // Purple
+  { bg: '#00ACC1', dark: '#00838F' },  // Cyan
+  { bg: '#F4511E', dark: '#D84315' },  // Deep Orange
+  { bg: '#7CB342', dark: '#558B2F' },  // Light Green
+  { bg: '#FFB300', dark: '#FF8F00' },  // Amber
+  { bg: '#5E35B1', dark: '#4527A0' },  // Deep Purple
+];
+
 export default function MultiTrackTimeline({
   files,
   segments,
@@ -33,6 +47,12 @@ export default function MultiTrackTimeline({
   const timelineRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [scrollPosition, setScrollPosition] = useState(0);
+  
+  // Assign colors to files
+  const getSegmentColor = (fileId: string) => {
+    const fileIndex = files.findIndex(f => f.id === fileId);
+    return SEGMENT_COLORS[fileIndex % SEGMENT_COLORS.length];
+  };
 
   // Calculate total timeline duration
   const totalDuration = segments.reduce((max, seg) => {
@@ -138,27 +158,33 @@ export default function MultiTrackTimeline({
 
         {/* Track area */}
         <div className="multi-track-area" style={{ width: `${Math.max(totalDuration + 10, 60) * pixelsPerSecond}px` }}>
-          {segments.map(segment => (
-            <div
-              key={segment.id}
-              className={`multi-track-segment ${selectedSegment?.id === segment.id ? 'selected' : ''} ${isDragging && draggedSegmentId === segment.id ? 'dragging' : ''}`}
-              style={{
-                left: `${segment.trackPosition * pixelsPerSecond}px`,
-                width: `${segment.duration * pixelsPerSecond}px`,
-              }}
-              onMouseDown={(e) => handleSegmentMouseDown(e, segment)}
-            >
-              <div className="multi-track-segment-content">
-                <div className="multi-track-segment-name">{segment.file.name}</div>
-                <div className="multi-track-segment-time">
-                  {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
-                </div>
-                <div className="multi-track-segment-duration">
-                  Duration: {formatTime(segment.duration)}
+          {segments.map(segment => {
+            const colors = getSegmentColor(segment.fileId);
+            return (
+              <div
+                key={segment.id}
+                className={`multi-track-segment ${selectedSegment?.id === segment.id ? 'selected' : ''} ${isDragging && draggedSegmentId === segment.id ? 'dragging' : ''}`}
+                style={{
+                  left: `${segment.trackPosition * pixelsPerSecond}px`,
+                  width: `${Math.max(segment.duration * pixelsPerSecond, 40)}px`,
+                  minWidth: '40px',
+                  background: `linear-gradient(135deg, ${colors.bg} 0%, ${colors.dark} 100%)`,
+                  borderColor: colors.dark,
+                }}
+                onMouseDown={(e) => handleSegmentMouseDown(e, segment)}
+              >
+                <div className="multi-track-segment-content">
+                  <div className="multi-track-segment-name">{segment.file.name}</div>
+                  <div className="multi-track-segment-time">
+                    {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
+                  </div>
+                  <div className="multi-track-segment-duration">
+                    Duration: {formatTime(segment.duration)}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

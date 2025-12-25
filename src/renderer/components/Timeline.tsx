@@ -52,37 +52,37 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
     }
   };
 
-  const updateTime = useCallback(() => {
-    if (mediaRef.current && isPlaying) {
-      const time = mediaRef.current.currentTime;
-      
-      // Auto-stop at end cut when playing selection
-      if (playMode === 'selection' && time >= endCut) {
-        mediaRef.current.pause();
-        setIsPlaying(false);
-        setCurrentTime(startCut);
-        if (mediaRef.current.currentTime !== startCut) {
-          mediaRef.current.currentTime = startCut;
-        }
-        return;
-      }
-      
-      // Only update if time changed significantly (reduces updates)
-      setCurrentTime(time);
-      animationFrameRef.current = requestAnimationFrame(updateTime);
-    }
-  }, [isPlaying, endCut, startCut, playMode]);
-
+  // Use timeupdate event instead of requestAnimationFrame to reduce glitching
   useEffect(() => {
-    if (isPlaying) {
-      animationFrameRef.current = requestAnimationFrame(updateTime);
-    }
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+    if (!mediaRef.current) return;
+    
+    const handleTimeUpdate = () => {
+      if (mediaRef.current) {
+        const time = mediaRef.current.currentTime;
+        
+        // Auto-stop at end cut when playing selection
+        if (isPlaying && playMode === 'selection' && time >= endCut) {
+          mediaRef.current.pause();
+          setIsPlaying(false);
+          if (mediaRef.current.currentTime !== startCut) {
+            mediaRef.current.currentTime = startCut;
+          }
+          setCurrentTime(startCut);
+          return;
+        }
+        
+        setCurrentTime(time);
       }
     };
-  }, [isPlaying, updateTime]);
+    
+    mediaRef.current.addEventListener('timeupdate', handleTimeUpdate);
+    
+    return () => {
+      if (mediaRef.current) {
+        mediaRef.current.removeEventListener('timeupdate', handleTimeUpdate);
+      }
+    };
+  }, [isPlaying, playMode, endCut, startCut]);
 
   const handlePlayPause = () => {
     if (!mediaRef.current) return;
