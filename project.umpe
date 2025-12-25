@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "files": [
+    {
+      "id": "3cd61396-5ead-445e-a92c-95bc2a7bf1b0",
+      "path": "/home/qacer6973/projects/Công chúa bong bóng - Nguyễn Hoàng Linh- Thanh Duy live tại Chợ Gạo Bar ngày 28⧸06⧸2020.mp3",
+      "startCut": 36.488234,
+      "endCut": 173.90994364541834,
+      "order": 0
+    }
+  ],
+  "settings": {
+    "theme": "light",
+    "defaultOutputFolder": "",
+    "autoSave": true,
+    "recentProjects": [
+      "/home/qacer6973/projects/ultimate-mp3-mp4-editor/ccbb2.umpe",
+      "/home/qacer6973/projects/ccbb1.mp3"
+    ]
+  },
+  "exportHistory": []
+}

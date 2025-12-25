@@ -432,15 +432,12 @@ function App() {
         e.preventDefault();
         handleRedo();
       }
-      // Save
-      else if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+      // Export
+      else if ((e.metaKey || e.ctrlKey) && e.key === 'e') {
         e.preventDefault();
-        handleSaveProject();
-      }
-      // Open
-      else if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
-        e.preventDefault();
-        handleLoadProject();
+        if (files.length > 0) {
+          handleExportCut();
+        }
       }
     };
 
@@ -449,6 +446,16 @@ function App() {
   }, [undoStack, redoStack, files, selectedFile]);
 
   if (!apiReady) {
+    // Don't show loading screen in browser - only in Electron
+    if (typeof window !== 'undefined' && !window.electronAPI) {
+      return (
+        <div className="app" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: '20px' }}>
+          <h2>Electron Application Only</h2>
+          <p>This application must be run in Electron, not in a web browser.</p>
+          <p style={{ fontSize: '12px', color: '#888' }}>Please run: npm run dev</p>
+        </div>
+      );
+    }
     return (
       <div className="app" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: '20px' }}>
         <h2>Initializing Application...</h2>
@@ -461,13 +468,13 @@ function App() {
   return (
     <div className="app">
       <Header
-        onSave={handleSaveProject}
-        onLoad={handleLoadProject}
+        onExport={handleExportCut}
         onSettings={() => setShowSettingsDialog(true)}
         canUndo={undoStack.length > 0}
         canRedo={redoStack.length > 0}
         onUndo={handleUndo}
         onRedo={handleRedo}
+        hasFiles={files.length > 0}
       />
       
       <div className="app-content">
@@ -484,18 +491,10 @@ function App() {
         
         <div className="main-panel">
           {selectedFile ? (
-            <>
-              <Timeline
-                file={selectedFile}
-                onCutChange={handleCutChange}
-              />
-              <Controls
-                file={selectedFile}
-                files={files}
-                onExportCut={handleExportCut}
-                onExportMerge={handleExportMerge}
-              />
-            </>
+            <Timeline
+              file={selectedFile}
+              onCutChange={handleCutChange}
+            />
           ) : (
             <div className="empty-state">
               <h2>No file selected</h2>

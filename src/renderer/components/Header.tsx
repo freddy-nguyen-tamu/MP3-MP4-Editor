@@ -1,23 +1,23 @@
 import './Header.css';
 
 interface HeaderProps {
-  onSave: () => void;
-  onLoad: () => void;
+  onExport: () => void;
   onSettings: () => void;
   canUndo: boolean;
   canRedo: boolean;
   onUndo: () => void;
   onRedo: () => void;
+  hasFiles: boolean;
 }
 
 export default function Header({
-  onSave,
-  onLoad,
+  onExport,
   onSettings,
   canUndo,
   canRedo,
   onUndo,
   onRedo,
+  hasFiles,
 }: HeaderProps) {
   return (
     <header className="header">
@@ -26,22 +26,13 @@ export default function Header({
       </div>
       
       <div className="header-actions">
-        <button onClick={onLoad} className="tooltip" data-tooltip="Open Project (Ctrl+O)">
-          Open Project
-        </button>
-        <button onClick={onSave} className="tooltip" data-tooltip="Save Project (Ctrl+S)">
-          Save Project
-        </button>
-        
-        <div className="header-divider" />
-        
         <button 
           onClick={onUndo} 
           disabled={!canUndo}
           className="tooltip" 
           data-tooltip="Undo (Ctrl+Z)"
         >
-          ↶
+          Undo
         </button>
         <button 
           onClick={onRedo} 
@@ -49,7 +40,18 @@ export default function Header({
           className="tooltip" 
           data-tooltip="Redo (Ctrl+Shift+Z)"
         >
-          ↷
+          Redo
+        </button>
+        
+        <div className="header-divider" />
+        
+        <button 
+          onClick={onExport}
+          disabled={!hasFiles}
+          className="tooltip primary"
+          data-tooltip="Export to MP3/MP4 (Ctrl+E)"
+        >
+          Export File
         </button>
         
         <div className="header-divider" />

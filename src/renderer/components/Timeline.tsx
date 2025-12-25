@@ -295,6 +295,7 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
             src={`file://${file.path}`}
             className="timeline-video"
             onEnded={() => setIsPlaying(false)}
+            preload="auto"
           />
         ) : (
           <>
@@ -302,6 +303,7 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
               ref={audioRef}
               src={`file://${file.path}`}
               onEnded={() => setIsPlaying(false)}
+              preload="auto"
             />
             <div className="timeline-audio-viz">
               {waveformData ? (
