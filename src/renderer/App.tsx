@@ -35,17 +35,17 @@ function App() {
     console.log('window.electronAPI:', typeof window.electronAPI);
     
     if (window.electronAPI) {
-      console.log('✅ Electron API is available');
+      console.log('[OK] Electron API is available');
       console.log('Available methods:', Object.keys(window.electronAPI));
       setApiReady(true);
       loadSettings();
       loadAutosave();
     } else {
-      console.error('❌ Electron API is NOT available!');
-      console.error('This usually means the preload script did not load correctly.');
+      console.error('[ERROR] Electron API is NOT available.');
+      console.error('The preload script did not load correctly.');
       setTimeout(() => {
         if (!window.electronAPI) {
-          alert('Critical Error: Electron API not loaded.\n\nPlease close the app and restart with:\nnpm run dev');
+          alert('CRITICAL ERROR: Electron API not loaded.\n\nPlease close the app and restart with:\nnpm run dev');
         }
       }, 1000);
     }

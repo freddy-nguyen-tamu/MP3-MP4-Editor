@@ -9,7 +9,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔍 Verifying Ultimate MP3/MP4 Editor Setup...\n');
+console.log('[VERIFY] Checking Ultimate MP3/MP4 Editor Setup\n');
 
 let allGood = true;
 const checks = [];
@@ -18,9 +18,9 @@ const checks = [];
 function check(name, fn) {
   try {
     fn();
-    checks.push({ name, status: '✅', message: 'OK' });
+    checks.push({ name, status: '[OK]', message: 'OK' });
   } catch (error) {
-    checks.push({ name, status: '❌', message: error.message });
+    checks.push({ name, status: '[FAIL]', message: error.message });
     allGood = false;
   }
 }
@@ -142,12 +142,12 @@ for (const check of checks) {
 console.log('='.repeat(70));
 
 if (allGood) {
-  console.log('\n✅ ALL CHECKS PASSED!\n');
+  console.log('\n[SUCCESS] ALL CHECKS PASSED\n');
   console.log('You are ready to run the app:');
   console.log('  npm run dev\n');
   console.log('First-time startup may take 10-20 seconds to compile.\n');
 } else {
-  console.log('\n❌ SOME CHECKS FAILED\n');
+  console.log('\n[FAILURE] SOME CHECKS FAILED\n');
   console.log('Please fix the issues above before running the app.');
   console.log('Common fixes:');
   console.log('  - Install FFmpeg: brew install ffmpeg (Mac) or download from ffmpeg.org');

@@ -15,9 +15,9 @@ if (fs.existsSync(preloadPath)) {
   
   // Check if compiled properly
   if (content.includes('electron_1.contextBridge')) {
-    console.log('✅ Preload compiled correctly (CommonJS)');
+    console.log('[OK] Preload compiled correctly (CommonJS)');
   } else {
-    console.log('❌ Preload may have compilation issues');
+    console.log('[ERROR] Preload may have compilation issues');
   }
 }
 

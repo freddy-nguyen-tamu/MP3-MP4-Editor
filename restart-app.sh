@@ -53,7 +53,7 @@ echo "════════════════════════�
 echo ""
 echo "When the app opens:"
 echo "  1. Press Ctrl+Shift+I to open DevTools"
-echo "  2. Look in Console for: '✅ Electron API is available'"
+echo "  2. Look in Console for: '[OK] Electron API is available'"
 echo "  3. Try clicking 'Add Files' button"
 echo ""
 echo "Starting in 3 seconds..."
