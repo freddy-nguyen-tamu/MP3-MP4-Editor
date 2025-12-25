@@ -204,7 +204,7 @@ Access via gear icon:
 - **Auto-save**: Enable/disable auto-recovery
 - **Export History**: View recent exports
 
-## 🧪 Testing
+## Testing
 
 Run the FFmpeg wrapper tests:
 
@@ -212,7 +212,7 @@ Run the FFmpeg wrapper tests:
 npm test
 ```
 
-## 🔧 Project Structure
+## Project Structure
 
 ```
 ultimate-mp3-mp4-editor/
