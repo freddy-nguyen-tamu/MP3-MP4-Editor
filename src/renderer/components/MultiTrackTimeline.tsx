@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { MediaFile } from '../types';
+import SplitOverlayDialog from './SplitOverlayDialog';
 import './MultiTrackTimeline.css';
 
 export interface TimelineSegment {
@@ -52,6 +53,12 @@ export default function MultiTrackTimeline({
   const [scrollPosition, setScrollPosition] = useState(0);
   const [showSplitPreview, setShowSplitPreview] = useState(false);
   const [splitPreviewPosition, setSplitPreviewPosition] = useState({ x: 0, track: 0 });
+  const [showSplitDialog, setShowSplitDialog] = useState(false);
+  const [pendingSplit, setPendingSplit] = useState<{
+    targetSegment: TimelineSegment;
+    droppedSegment: TimelineSegment;
+    splitTime: number;
+  } | null>(null);
   
   const TRACK_HEIGHT = 120;
   const TRACK_MARGIN = 10;
@@ -93,7 +100,7 @@ export default function MultiTrackTimeline({
     const timePosition = mouseX / pixelsPerSecond;
     const trackIndex = Math.floor(mouseY / (TRACK_HEIGHT + TRACK_MARGIN));
     
-    // Find segment at this position on this track
+    // Find segment at this position (can be on ANY track, including same)
     const targetSegment = segments.find(seg => 
       seg.id !== draggedSeg.id &&
       seg.trackIndex === trackIndex &&
@@ -152,8 +159,13 @@ export default function MultiTrackTimeline({
         const splitInfo = checkForSplit(draggedSeg, x, y);
         
         if (splitInfo) {
-          // User dropped on another segment - split it
-          handleSplitSegment(splitInfo.segment, splitInfo.splitTime, draggedSeg);
+          // User dropped on another segment - show dialog to choose split or overlay
+          setPendingSplit({
+            targetSegment: splitInfo.segment,
+            droppedSegment: draggedSeg,
+            splitTime: splitInfo.splitTime,
+          });
+          setShowSplitDialog(true);
         }
       }
       
@@ -171,32 +183,41 @@ export default function MultiTrackTimeline({
     };
   }, [isDragging, draggedSegmentId, dragOffset, pixelsPerSecond, segments, scrollPosition, numTracks]);
 
-  // Split a segment when another is dropped on it
-  const handleSplitSegment = (targetSegment: TimelineSegment, splitTime: number, droppedSegment: TimelineSegment) => {
-    const { v4: uuidv4 } = require('uuid');
+  // Handle user choice from dialog
+  const handleSplitChoice = (choice: 'split' | 'overlay' | 'cancel') => {
+    if (!pendingSplit) return;
     
-    // Check if this is audio on video (overlay scenario)
-    const isAudioOnVideo = !droppedSegment.file.videoCodec && targetSegment.file.videoCodec;
+    const { targetSegment, droppedSegment, splitTime } = pendingSplit;
     
-    if (isAudioOnVideo) {
-      // Audio overlay: don't split, just mark the dropped segment as overlay
+    if (choice === 'split') {
+      performSplit(targetSegment, splitTime, droppedSegment);
+    } else if (choice === 'overlay') {
+      performOverlay(targetSegment, droppedSegment, splitTime);
+    } else {
+      // Cancel - revert dropped segment to original position
       const updatedSegments = segments.map(seg => {
         if (seg.id === droppedSegment.id) {
-          return { ...seg, isAudioOverlay: true };
+          return { ...seg, trackIndex: dragStartTrack };
         }
         return seg;
       });
       onSegmentsChange(updatedSegments);
-      console.log('[INFO] Audio overlay created on video segment');
-      return;
     }
     
-    // Otherwise, split the target segment
+    setShowSplitDialog(false);
+    setPendingSplit(null);
+  };
+  
+  // Split a segment when another is dropped on it
+  const performSplit = (targetSegment: TimelineSegment, splitTime: number, droppedSegment: TimelineSegment) => {
+    const { v4: uuidv4 } = require('uuid');
+    
     const splitPoint = splitTime - targetSegment.trackPosition;
     const splitTimeInFile = targetSegment.startTime + splitPoint;
     
-    if (splitPoint <= 0 || splitPoint >= targetSegment.duration) {
-      // Split point is at the edge, no split needed
+    if (splitPoint <= 0.1 || splitPoint >= targetSegment.duration - 0.1) {
+      // Split point is too close to edge, no split needed
+      console.log('[INFO] Split point too close to edge, ignoring');
       return;
     }
     
@@ -230,13 +251,30 @@ export default function MultiTrackTimeline({
       file: targetSegment.file,
     };
     
-    // Update segments: remove original, add two parts and the dropped segment
+    // Update segments: remove original, add two parts
     const updatedSegments = segments
       .filter(seg => seg.id !== targetSegment.id)
       .concat([firstPart, secondPart]);
     
     onSegmentsChange(updatedSegments);
     console.log('[INFO] Segment split complete. Created 2 new segments.');
+  };
+  
+  // Overlay audio/video simultaneously
+  const performOverlay = (targetSegment: TimelineSegment, droppedSegment: TimelineSegment, splitTime: number) => {
+    // Mark as overlay and position at the same time as target
+    const updatedSegments = segments.map(seg => {
+      if (seg.id === droppedSegment.id) {
+        return { 
+          ...seg, 
+          isAudioOverlay: true,
+          trackPosition: targetSegment.trackPosition, // Align with target start
+        };
+      }
+      return seg;
+    });
+    onSegmentsChange(updatedSegments);
+    console.log('[INFO] Overlay created - files will play simultaneously');
   };
 
   const handleTimelineClick = (e: React.MouseEvent) => {
@@ -251,8 +289,17 @@ export default function MultiTrackTimeline({
   };
 
   return (
-    <div className="multi-track-timeline">
-      <div className="multi-track-header">
+    <>
+      {showSplitDialog && pendingSplit && (
+        <SplitOverlayDialog
+          droppedFileName={pendingSplit.droppedSegment.file.name}
+          targetFileName={pendingSplit.targetSegment.file.name}
+          onChoice={handleSplitChoice}
+        />
+      )}
+      
+      <div className="multi-track-timeline">
+        <div className="multi-track-header">
         <h3>Timeline Arrangement</h3>
         <div className="multi-track-controls">
           <button onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}>Zoom Out</button>
@@ -354,5 +401,6 @@ export default function MultiTrackTimeline({
         <p>Drag segments to rearrange them on the timeline</p>
       </div>
     </div>
+    </>
   );
 }

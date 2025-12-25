@@ -99,13 +99,35 @@ export default function ExportDialog({
         
         if (segments && segments.length > 0) {
           // Use timeline segments (multi-track mode)
-          inputs = segments
-            .sort((a, b) => a.trackPosition - b.trackPosition)
-            .map(seg => ({
-              path: seg.file.path,
-              startTime: seg.startTime,
-              endTime: seg.endTime,
-            }));
+          // Sort by track first, then by position within track
+          const sortedSegments = [...segments].sort((a, b) => {
+            if (a.trackIndex !== b.trackIndex) {
+              return a.trackIndex - b.trackIndex;
+            }
+            return a.trackPosition - b.trackPosition;
+          });
+          
+          console.log('[EXPORT] Processing segments:', sortedSegments.map(s => ({
+            name: s.file.name,
+            track: s.trackIndex,
+            position: s.trackPosition,
+            start: s.startTime,
+            end: s.endTime,
+            duration: s.duration,
+            isOverlay: s.isAudioOverlay
+          })));
+          
+          // Filter out overlays for now - they need special handling
+          // TODO: Implement proper audio overlay mixing
+          const mainSegments = sortedSegments.filter(seg => !seg.isAudioOverlay);
+          
+          inputs = mainSegments.map(seg => ({
+            path: seg.file.path,
+            startTime: seg.startTime,
+            endTime: seg.endTime,
+          }));
+          
+          console.log('[EXPORT] Inputs to merge:', inputs);
         } else {
           // Use files with their cuts (normal mode)
           inputs = files
