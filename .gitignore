@@ -1,0 +1,15 @@
+node_modules
+dist
+release
+*.log
+.DS_Store
+Thumbs.db
+*.user
+.vscode
+.idea
+*.swp
+*.swo
+*~
+resources/ffmpeg/*.exe
+resources/ffmpeg/ffmpeg
+resources/ffmpeg/ffprobe

@@ -1,0 +1,7 @@
+# Place FFmpeg binaries here for packaging
+# 
+# Required files:
+# - Windows: ffmpeg.exe, ffprobe.exe
+# - macOS/Linux: ffmpeg, ffprobe
+# 
+# Download from: https://ffmpeg.org/download.html

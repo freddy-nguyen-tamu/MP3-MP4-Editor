@@ -1,0 +1,479 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import FileList from './components/FileList';
+import Timeline from './components/Timeline';
+import Controls from './components/Controls';
+import ExportDialog from './components/ExportDialog';
+import SettingsDialog from './components/SettingsDialog';
+import Header from './components/Header';
+import { MediaFile, AppSettings, ExportHistoryItem, UndoState } from './types';
+import { v4 as uuidv4 } from 'uuid';
+import './App.css';
+
+const defaultSettings: AppSettings = {
+  theme: 'dark',
+  defaultOutputFolder: '',
+  autoSave: true,
+  recentProjects: [],
+};
+
+function App() {
+  const [files, setFiles] = useState<MediaFile[]>([]);
+  const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null);
+  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const [exportMode, setExportMode] = useState<'cut' | 'merge'>('cut');
+  const [exportHistory, setExportHistory] = useState<ExportHistoryItem[]>([]);
+  const [undoStack, setUndoStack] = useState<UndoState[]>([]);
+  const [redoStack, setRedoStack] = useState<UndoState[]>([]);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load settings on mount
+  useEffect(() => {
+    loadSettings();
+    loadAutosave();
+  }, []);
+
+  // Apply theme
+  useEffect(() => {
+    if (settings.theme === 'light') {
+      document.body.classList.add('light-theme');
+    } else {
+      document.body.classList.remove('light-theme');
+    }
+  }, [settings.theme]);
+
+  // Auto-save
+  useEffect(() => {
+    if (settings.autoSave && files.length > 0) {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+      
+      autoSaveTimerRef.current = setTimeout(() => {
+        saveAutosave();
+      }, 5000); // Auto-save every 5 seconds
+    }
+
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+    };
+  }, [files, settings.autoSave]);
+
+  const loadSettings = async () => {
+    try {
+      const loadedSettings = await window.electronAPI.getSettings();
+      if (loadedSettings) {
+        setSettings(loadedSettings);
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    }
+  };
+
+  const saveSettings = async (newSettings: AppSettings) => {
+    try {
+      await window.electronAPI.saveSettings(newSettings);
+      setSettings(newSettings);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+    }
+  };
+
+  const saveAutosave = async () => {
+    try {
+      const projectData = {
+        version: '1.0.0',
+        files: files.map(f => ({
+          id: f.id,
+          path: f.path,
+          startCut: f.startCut,
+          endCut: f.endCut,
+          order: f.order,
+        })),
+        settings,
+        exportHistory,
+      };
+      
+      await window.electronAPI.autosaveProject(projectData);
+    } catch (error) {
+      console.error('Auto-save failed:', error);
+    }
+  };
+
+  const loadAutosave = async () => {
+    try {
+      const projectData = await window.electronAPI.loadAutosave();
+      if (projectData && projectData.files.length > 0) {
+        // Verify files still exist
+        const validFiles: MediaFile[] = [];
+        
+        for (const fileData of projectData.files) {
+          const exists = await window.electronAPI.fileExists(fileData.path);
+          if (exists) {
+            const mediaInfo = await window.electronAPI.probeMedia(fileData.path);
+            validFiles.push({
+              id: fileData.id,
+              path: fileData.path,
+              name: fileData.path.split(/[\\/]/).pop() || '',
+              duration: mediaInfo.duration,
+              codec: mediaInfo.codec,
+              videoCodec: mediaInfo.videoCodec,
+              audioCodec: mediaInfo.audioCodec,
+              width: mediaInfo.width,
+              height: mediaInfo.height,
+              frameRate: mediaInfo.frameRate,
+              size: mediaInfo.size,
+              startCut: fileData.startCut,
+              endCut: fileData.endCut,
+              order: fileData.order,
+            });
+          }
+        }
+        
+        if (validFiles.length > 0) {
+          setFiles(validFiles);
+          setSelectedFile(validFiles[0]);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load autosave:', error);
+    }
+  };
+
+  const handleFilesAdded = async (filePaths: string[]) => {
+    const newFiles: MediaFile[] = [];
+    const maxOrder = files.length > 0 ? Math.max(...files.map(f => f.order)) : -1;
+    
+    for (let i = 0; i < filePaths.length; i++) {
+      const filePath = filePaths[i];
+      
+      try {
+        const mediaInfo = await window.electronAPI.probeMedia(filePath);
+        const fileName = filePath.split(/[\\/]/).pop() || '';
+        
+        const file: MediaFile = {
+          id: uuidv4(),
+          path: filePath,
+          name: fileName,
+          duration: mediaInfo.duration,
+          codec: mediaInfo.codec,
+          videoCodec: mediaInfo.videoCodec,
+          audioCodec: mediaInfo.audioCodec,
+          width: mediaInfo.width,
+          height: mediaInfo.height,
+          frameRate: mediaInfo.frameRate,
+          size: mediaInfo.size,
+          startCut: 0,
+          endCut: mediaInfo.duration,
+          order: maxOrder + i + 1,
+        };
+        
+        newFiles.push(file);
+      } catch (error) {
+        console.error(`Failed to load file ${filePath}:`, error);
+      }
+    }
+    
+    if (newFiles.length > 0) {
+      const updatedFiles = [...files, ...newFiles];
+      setFiles(updatedFiles);
+      
+      if (!selectedFile && newFiles.length > 0) {
+        setSelectedFile(newFiles[0]);
+      }
+    }
+  };
+
+  const handleFileSelect = (file: MediaFile) => {
+    setSelectedFile(file);
+  };
+
+  const handleFileRemove = (fileId: string) => {
+    const updatedFiles = files.filter(f => f.id !== fileId);
+    setFiles(updatedFiles);
+    
+    if (selectedFile?.id === fileId) {
+      setSelectedFile(updatedFiles[0] || null);
+    }
+  };
+
+  const handleFilesReorder = (reorderedFiles: MediaFile[]) => {
+    pushUndo({ type: 'reorder', files: [...files] });
+    setFiles(reorderedFiles);
+  };
+
+  const handleCutChange = (startCut: number, endCut: number) => {
+    if (!selectedFile) return;
+    
+    pushUndo({ 
+      type: 'cut', 
+      fileId: selectedFile.id,
+      startCut: selectedFile.startCut,
+      endCut: selectedFile.endCut,
+    });
+    
+    const updatedFiles = files.map(f =>
+      f.id === selectedFile.id ? { ...f, startCut, endCut } : f
+    );
+    
+    setFiles(updatedFiles);
+    setSelectedFile({ ...selectedFile, startCut, endCut });
+  };
+
+  const pushUndo = (state: UndoState) => {
+    setUndoStack(prev => [...prev, state]);
+    setRedoStack([]);
+  };
+
+  const handleUndo = () => {
+    if (undoStack.length === 0) return;
+    
+    const state = undoStack[undoStack.length - 1];
+    setUndoStack(prev => prev.slice(0, -1));
+    
+    if (state.type === 'cut' && state.fileId) {
+      const file = files.find(f => f.id === state.fileId);
+      if (file) {
+        setRedoStack(prev => [...prev, {
+          type: 'cut',
+          fileId: file.id,
+          startCut: file.startCut,
+          endCut: file.endCut,
+        }]);
+        
+        const updatedFiles = files.map(f =>
+          f.id === state.fileId ? { ...f, startCut: state.startCut!, endCut: state.endCut! } : f
+        );
+        setFiles(updatedFiles);
+        
+        if (selectedFile?.id === state.fileId) {
+          setSelectedFile({ ...selectedFile, startCut: state.startCut!, endCut: state.endCut! });
+        }
+      }
+    } else if (state.type === 'reorder' && state.files) {
+      setRedoStack(prev => [...prev, { type: 'reorder', files: [...files] }]);
+      setFiles(state.files);
+    }
+  };
+
+  const handleRedo = () => {
+    if (redoStack.length === 0) return;
+    
+    const state = redoStack[redoStack.length - 1];
+    setRedoStack(prev => prev.slice(0, -1));
+    
+    if (state.type === 'cut' && state.fileId) {
+      const file = files.find(f => f.id === state.fileId);
+      if (file) {
+        setUndoStack(prev => [...prev, {
+          type: 'cut',
+          fileId: file.id,
+          startCut: file.startCut,
+          endCut: file.endCut,
+        }]);
+        
+        const updatedFiles = files.map(f =>
+          f.id === state.fileId ? { ...f, startCut: state.startCut!, endCut: state.endCut! } : f
+        );
+        setFiles(updatedFiles);
+        
+        if (selectedFile?.id === state.fileId) {
+          setSelectedFile({ ...selectedFile, startCut: state.startCut!, endCut: state.endCut! });
+        }
+      }
+    } else if (state.type === 'reorder' && state.files) {
+      setUndoStack(prev => [...prev, { type: 'reorder', files: [...files] }]);
+      setFiles(state.files);
+    }
+  };
+
+  const handleExportCut = () => {
+    setExportMode('cut');
+    setShowExportDialog(true);
+  };
+
+  const handleExportMerge = () => {
+    setExportMode('merge');
+    setShowExportDialog(true);
+  };
+
+  const handleExportComplete = (outputPath: string, mode: 'cut' | 'merge') => {
+    const historyItem: ExportHistoryItem = {
+      id: uuidv4(),
+      timestamp: Date.now(),
+      outputPath,
+      type: mode,
+    };
+    
+    setExportHistory(prev => [historyItem, ...prev]);
+    setShowExportDialog(false);
+  };
+
+  const handleSaveProject = async () => {
+    try {
+      const projectData = {
+        version: '1.0.0',
+        files: files.map(f => ({
+          id: f.id,
+          path: f.path,
+          startCut: f.startCut,
+          endCut: f.endCut,
+          order: f.order,
+        })),
+        settings,
+        exportHistory,
+      };
+      
+      const savedPath = await window.electronAPI.saveProject(projectData);
+      if (savedPath) {
+        // Add to recent projects
+        const recentProjects = [savedPath, ...settings.recentProjects.filter(p => p !== savedPath)].slice(0, 10);
+        saveSettings({ ...settings, recentProjects });
+      }
+    } catch (error) {
+      console.error('Failed to save project:', error);
+    }
+  };
+
+  const handleLoadProject = async () => {
+    try {
+      const projectData = await window.electronAPI.loadProject();
+      if (projectData) {
+        // Load files
+        const loadedFiles: MediaFile[] = [];
+        
+        for (const fileData of projectData.files) {
+          const exists = await window.electronAPI.fileExists(fileData.path);
+          if (exists) {
+            const mediaInfo = await window.electronAPI.probeMedia(fileData.path);
+            loadedFiles.push({
+              id: fileData.id,
+              path: fileData.path,
+              name: fileData.path.split(/[\\/]/).pop() || '',
+              duration: mediaInfo.duration,
+              codec: mediaInfo.codec,
+              videoCodec: mediaInfo.videoCodec,
+              audioCodec: mediaInfo.audioCodec,
+              width: mediaInfo.width,
+              height: mediaInfo.height,
+              frameRate: mediaInfo.frameRate,
+              size: mediaInfo.size,
+              startCut: fileData.startCut,
+              endCut: fileData.endCut,
+              order: fileData.order,
+            });
+          }
+        }
+        
+        setFiles(loadedFiles);
+        setSelectedFile(loadedFiles[0] || null);
+        
+        if (projectData.exportHistory) {
+          setExportHistory(projectData.exportHistory);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load project:', error);
+    }
+  };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Undo/Redo
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === 'Z' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        handleRedo();
+      }
+      // Save
+      else if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        handleSaveProject();
+      }
+      // Open
+      else if ((e.metaKey || e.ctrlKey) && e.key === 'o') {
+        e.preventDefault();
+        handleLoadProject();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undoStack, redoStack, files, selectedFile]);
+
+  return (
+    <div className="app">
+      <Header
+        onSave={handleSaveProject}
+        onLoad={handleLoadProject}
+        onSettings={() => setShowSettingsDialog(true)}
+        canUndo={undoStack.length > 0}
+        canRedo={redoStack.length > 0}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+      />
+      
+      <div className="app-content">
+        <div className="left-panel">
+          <FileList
+            files={files}
+            selectedFile={selectedFile}
+            onFileSelect={handleFileSelect}
+            onFileRemove={handleFileRemove}
+            onFilesReorder={handleFilesReorder}
+            onFilesAdded={handleFilesAdded}
+          />
+        </div>
+        
+        <div className="main-panel">
+          {selectedFile ? (
+            <>
+              <Timeline
+                file={selectedFile}
+                onCutChange={handleCutChange}
+              />
+              <Controls
+                file={selectedFile}
+                files={files}
+                onExportCut={handleExportCut}
+                onExportMerge={handleExportMerge}
+              />
+            </>
+          ) : (
+            <div className="empty-state">
+              <h2>No file selected</h2>
+              <p>Add files to get started</p>
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {showExportDialog && (
+        <ExportDialog
+          mode={exportMode}
+          file={selectedFile}
+          files={files}
+          onClose={() => setShowExportDialog(false)}
+          onExportComplete={handleExportComplete}
+        />
+      )}
+      
+      {showSettingsDialog && (
+        <SettingsDialog
+          settings={settings}
+          exportHistory={exportHistory}
+          onClose={() => setShowSettingsDialog(false)}
+          onSave={saveSettings}
+        />
+      )}
+    </div>
+  );
+}
+
+export default App;

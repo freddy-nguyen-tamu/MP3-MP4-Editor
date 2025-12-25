@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>IPC Test</title>
+</head>
+<body>
+    <h1>IPC Test</h1>
+    <div id="status">Checking...</div>
+    <button onclick="testAPI()">Test API</button>
+    <script>
+        const status = document.getElementById('status');
+        
+        function log(msg) {
+            status.innerHTML += msg + '<br>';
+        }
+        
+        // Check immediately
+        log('Window object: ' + typeof window);
+        log('electronAPI: ' + typeof window.electronAPI);
+        
+        if (window.electronAPI) {
+            log('✅ electronAPI is available!');
+            log('Methods: ' + Object.keys(window.electronAPI).join(', '));
+        } else {
+            log('❌ electronAPI NOT available');
+            log('Available: ' + Object.keys(window).join(', '));
+        }
+        
+        function testAPI() {
+            if (window.electronAPI && window.electronAPI.openFilesDialog) {
+                log('Calling openFilesDialog...');
+                window.electronAPI.openFilesDialog().then(files => {
+                    log('Got files: ' + JSON.stringify(files));
+                }).catch(err => {
+                    log('Error: ' + err.message);
+                });
+            } else {
+                log('Cannot call openFilesDialog - not available');
+            }
+        }
+    </script>
+</body>
+</html>
