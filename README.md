@@ -2,8 +2,6 @@
 
 A production-ready desktop application for cutting and merging MP3 and MP4 files with an intuitive timeline UI featuring draggable cut handles and precise media playback controls.
 
-![Ultimate MP3/MP4 Editor](https://via.placeholder.com/800x450?text=Ultimate+MP3/MP4+Editor)
-
 ## Key Features
 
 ### Core UX: Timeline Editing
@@ -152,7 +150,7 @@ For distribution, you must include FFmpeg binaries:
 
 **Note:** FFmpeg is licensed under LGPL/GPL. Ensure compliance with licensing requirements when distributing.
 
-## 📖 Usage Guide
+## Usage Guide
 
 ### Quick Start
 

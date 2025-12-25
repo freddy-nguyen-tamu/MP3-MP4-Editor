@@ -78,9 +78,11 @@ setTimeout(() => {
 // Step 4: Start Electron
 function startElectron() {
   console.log('[4/4] Starting Electron.\n');
+  const port = vitePort || 5173;
   const electronProcess = spawn('electron', ['.'], {
     stdio: 'inherit',
-    shell: true
+    shell: true,
+    env: { ...process.env, VITE_DEV_SERVER_PORT: port.toString() }
   });
 
   electronProcess.on('close', (code) => {

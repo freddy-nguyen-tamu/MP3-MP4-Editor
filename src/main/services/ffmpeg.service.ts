@@ -88,7 +88,12 @@ export class FFmpegService {
     return new Promise((resolve, reject) => {
       ffmpeg.ffprobe(filePath, (err, metadata) => {
         if (err) {
-          reject(err);
+          console.error('[ERROR] FFprobe failed:', err.message);
+          if (err.message.includes('ENOENT') || err.message.includes('spawn ffprobe')) {
+            reject(new Error('FFmpeg is not installed. Please install FFmpeg and restart the app.\n\nLinux: sudo apt install ffmpeg\nmacOS: brew install ffmpeg\nWindows: Download from ffmpeg.org'));
+          } else {
+            reject(new Error(`Failed to probe media file: ${err.message}`));
+          }
           return;
         }
 

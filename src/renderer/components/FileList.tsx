@@ -155,17 +155,17 @@ export default function FileList({
               <div className="file-item-details">
                 {file.videoCodec && (
                   <div className="file-item-codec">
-                    📹 {file.videoCodec} {file.width && `(${file.width}×${file.height})`}
+                    VIDEO: {file.videoCodec} {file.width && `(${file.width}×${file.height})`}
                   </div>
                 )}
                 {file.audioCodec && (
                   <div className="file-item-codec">
-                    🔊 {file.audioCodec}
+                    AUDIO: {file.audioCodec}
                   </div>
                 )}
                 {file.startCut > 0 || file.endCut < file.duration ? (
                   <div className="file-item-trim">
-                    ✂️ Trimmed: {formatDuration(file.startCut)} - {formatDuration(file.endCut)}
+                    TRIMMED: {formatDuration(file.startCut)} - {formatDuration(file.endCut)}
                   </div>
                 ) : null}
               </div>

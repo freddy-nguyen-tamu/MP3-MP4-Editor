@@ -162,19 +162,25 @@ function App() {
 
   const handleFilesAdded = async (filePaths: string[]) => {
     if (!window.electronAPI) {
-      console.error('electronAPI not available!');
+      console.error('[ERROR] electronAPI not available');
       alert('Error: Electron API not loaded. Please restart the app.');
       return;
     }
     
+    console.log('[INFO] Adding files:', filePaths);
+    
     const newFiles: MediaFile[] = [];
+    const failedFiles: string[] = [];
     const maxOrder = files.length > 0 ? Math.max(...files.map(f => f.order)) : -1;
     
     for (let i = 0; i < filePaths.length; i++) {
       const filePath = filePaths[i];
       
       try {
+        console.log('[INFO] Probing media file:', filePath);
         const mediaInfo = await window.electronAPI.probeMedia(filePath);
+        console.log('[INFO] Media info received:', mediaInfo);
+        
         const fileName = filePath.split(/[\\/]/).pop() || '';
         
         const file: MediaFile = {
@@ -195,8 +201,11 @@ function App() {
         };
         
         newFiles.push(file);
-      } catch (error) {
-        console.error(`Failed to load file ${filePath}:`, error);
+        console.log('[OK] File added successfully:', fileName);
+      } catch (error: any) {
+        console.error('[ERROR] Failed to load file:', filePath);
+        console.error('[ERROR] Error details:', error);
+        failedFiles.push(filePath);
       }
     }
     
@@ -207,6 +216,13 @@ function App() {
       if (!selectedFile && newFiles.length > 0) {
         setSelectedFile(newFiles[0]);
       }
+      
+      console.log('[OK] Added', newFiles.length, 'files successfully');
+    }
+    
+    if (failedFiles.length > 0) {
+      const fileNames = failedFiles.map(f => f.split(/[\\/]/).pop()).join('\n');
+      alert(`Failed to load ${failedFiles.length} file(s):\n\n${fileNames}\n\nMake sure ffmpeg is installed and the files are valid media files.`);
     }
   };
 
@@ -433,8 +449,9 @@ function App() {
   if (!apiReady) {
     return (
       <div className="app" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', flexDirection: 'column', gap: '20px' }}>
-        <h2>Loading Electron API...</h2>
-        <p>If this persists, check the console for errors and restart the app.</p>
+        <h2>Initializing Application...</h2>
+        <p>Loading Electron API and checking dependencies...</p>
+        <p style={{ fontSize: '12px', color: '#888' }}>If this persists, check the console for errors and restart the app.</p>
       </div>
     );
   }
