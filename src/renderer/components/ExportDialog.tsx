@@ -95,50 +95,6 @@ export default function ExportDialog({
           return;
         }
 
-        let inputs;
-        
-        if (segments && segments.length > 0) {
-          // Use timeline segments (multi-track mode)
-          // Sort by track first, then by position within track
-          const sortedSegments = [...segments].sort((a, b) => {
-            if (a.trackIndex !== b.trackIndex) {
-              return a.trackIndex - b.trackIndex;
-            }
-            return a.trackPosition - b.trackPosition;
-          });
-          
-          console.log('[EXPORT] Processing segments:', sortedSegments.map(s => ({
-            name: s.file.name,
-            track: s.trackIndex,
-            position: s.trackPosition,
-            start: s.startTime,
-            end: s.endTime,
-            duration: s.duration,
-            isOverlay: s.isAudioOverlay
-          })));
-          
-          // Filter out overlays for now - they need special handling
-          // TODO: Implement proper audio overlay mixing
-          const mainSegments = sortedSegments.filter(seg => !seg.isAudioOverlay);
-          
-          inputs = mainSegments.map(seg => ({
-            path: seg.file.path,
-            startTime: seg.startTime,
-            endTime: seg.endTime,
-          }));
-          
-          console.log('[EXPORT] Inputs to merge:', inputs);
-        } else {
-          // Use files with their cuts (normal mode)
-          inputs = files
-            .sort((a, b) => a.order - b.order)
-            .map(f => ({
-              path: f.path,
-              startTime: f.startCut > 0 ? f.startCut : undefined,
-              endTime: f.endCut < f.duration ? f.endCut : undefined,
-            }));
-        }
-
         const settings = {
           normalizeAudio,
           crossfadeDuration: crossfadeDuration > 0 ? crossfadeDuration : undefined,
@@ -148,11 +104,73 @@ export default function ExportDialog({
           audioCodec: !keepOriginalQuality ? audioCodec : undefined,
         };
 
-        await window.electronAPI.mergeMedia({
-          inputs,
-          outputPath,
-          settings,
-        });
+        if (segments && segments.length > 0) {
+          // Use timeline segments (multi-track mode) with advanced merge
+          // Sort by track first, then by position within track
+          const sortedSegments = [...segments].sort((a, b) => {
+            if (a.trackIndex !== b.trackIndex) {
+              return a.trackIndex - b.trackIndex;
+            }
+            return a.trackPosition - b.trackPosition;
+          });
+          
+          console.log('[EXPORT] Processing timeline segments:', sortedSegments.map(s => ({
+            name: s.file.name,
+            track: s.trackIndex,
+            position: s.trackPosition,
+            start: s.startTime,
+            end: s.endTime,
+            duration: s.duration,
+            hasVideo: !!s.file.videoCodec,
+            hasAudio: !!s.file.audioCodec
+          })));
+          
+          // Group segments by track and merge into sequential order
+          const trackSegments: { [track: number]: typeof sortedSegments } = {};
+          sortedSegments.forEach(seg => {
+            if (!trackSegments[seg.trackIndex]) {
+              trackSegments[seg.trackIndex] = [];
+            }
+            trackSegments[seg.trackIndex].push(seg);
+          });
+          
+          // For now, concatenate all segments from all tracks sequentially
+          // TODO: Handle proper multi-track overlay/mixing
+          const allSegmentsSequential = Object.values(trackSegments)
+            .flat()
+            .sort((a, b) => a.trackPosition - b.trackPosition);
+          
+          const segmentInputs = allSegmentsSequential.map(seg => ({
+            path: seg.file.path,
+            startTime: seg.startTime,
+            endTime: seg.endTime,
+            hasVideo: !!seg.file.videoCodec,
+            hasAudio: !!seg.file.audioCodec,
+          }));
+          
+          console.log('[EXPORT] Using advanced timeline merge with', segmentInputs.length, 'segments');
+          
+          await window.electronAPI.mergeTimelineSegments({
+            segments: segmentInputs,
+            outputPath,
+            settings,
+          });
+        } else {
+          // Use files with their cuts (normal mode)
+          const inputs = files
+            .sort((a, b) => a.order - b.order)
+            .map(f => ({
+              path: f.path,
+              startTime: f.startCut > 0 ? f.startCut : undefined,
+              endTime: f.endCut < f.duration ? f.endCut : undefined,
+            }));
+
+          await window.electronAPI.mergeMedia({
+            inputs,
+            outputPath,
+            settings,
+          });
+        }
       }
 
       if (outputPath) {

@@ -1,12 +1,29 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { FFmpegService } from './services/ffmpeg.service';
 import { ProjectService } from './services/project.service';
 
+// Disable hardware acceleration for remote desktop compatibility
+app.disableHardwareAcceleration();
+
 let mainWindow: BrowserWindow | null = null;
 const ffmpegService = new FFmpegService();
 const projectService = new ProjectService();
+
+// Register custom protocol for local media files
+app.whenReady().then(() => {
+  protocol.registerFileProtocol('media-file', (request, callback) => {
+    const url = request.url.replace('media-file://', '');
+    const decodedPath = decodeURIComponent(url);
+    try {
+      return callback(decodedPath);
+    } catch (error) {
+      console.error('Failed to load media file:', error);
+      return callback({ error: -2 }); // FAILED
+    }
+  });
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -18,7 +35,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
-      webSecurity: false, // Allow loading local files in development
+      webSecurity: false, // Allow loading local files
     },
     backgroundColor: '#1a1a1a',
     show: false,
@@ -36,7 +53,26 @@ function createWindow() {
   }
 
   mainWindow.once('ready-to-show', () => {
+    console.log('[INFO] Window ready to show');
     mainWindow?.show();
+  });
+
+  // Fallback: show window after 3 seconds even if ready-to-show doesn't fire
+  setTimeout(() => {
+    if (mainWindow && !mainWindow.isVisible()) {
+      console.log('[WARNING] Window not showing after 3s, forcing show');
+      mainWindow.show();
+    }
+  }, 3000);
+
+  // Log when page finishes loading
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('[INFO] Page finished loading');
+  });
+
+  // Log any errors
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('[ERROR] Page failed to load:', errorCode, errorDescription);
   });
 
   mainWindow.on('closed', () => {
@@ -145,6 +181,22 @@ ipcMain.handle('ffmpeg:merge', async (_event, options: any) => {
   }
 });
 
+ipcMain.handle('ffmpeg:mergeTimeline', async (_event, options: any) => {
+  try {
+    const result = await ffmpegService.mergeTimelineSegments(
+      options.segments,
+      options.outputPath,
+      options.settings,
+      (progress) => {
+        mainWindow?.webContents.send('ffmpeg:progress', progress);
+      }
+    );
+    return result;
+  } catch (error: any) {
+    throw new Error(`Failed to merge timeline: ${error.message}`);
+  }
+});
+
 ipcMain.handle('ffmpeg:generateWaveform', async (_event, filePath: string, width: number, height: number) => {
   try {
     return await ffmpegService.generateWaveform(filePath, width, height);
@@ -235,4 +287,27 @@ ipcMain.handle('fs:getFileSize', async (_event, filePath: string) => {
 
 ipcMain.handle('app:getPath', async (_event, name: string) => {
   return app.getPath(name as any);
+});
+
+ipcMain.handle('fs:readMediaFile', async (_event, filePath: string) => {
+  try {
+    const fileBuffer = fs.readFileSync(filePath);
+    const base64 = fileBuffer.toString('base64');
+    const ext = path.extname(filePath).toLowerCase();
+    
+    // Determine MIME type
+    let mimeType = 'application/octet-stream';
+    if (['.mp3'].includes(ext)) mimeType = 'audio/mpeg';
+    else if (['.mp4'].includes(ext)) mimeType = 'video/mp4';
+    else if (['.m4a'].includes(ext)) mimeType = 'audio/mp4';
+    else if (['.wav'].includes(ext)) mimeType = 'audio/wav';
+    else if (['.aac'].includes(ext)) mimeType = 'audio/aac';
+    else if (['.mkv'].includes(ext)) mimeType = 'video/x-matroska';
+    else if (['.avi'].includes(ext)) mimeType = 'video/x-msvideo';
+    else if (['.mov'].includes(ext)) mimeType = 'video/quicktime';
+    
+    return `data:${mimeType};base64,${base64}`;
+  } catch (error: any) {
+    throw new Error(`Failed to read media file: ${error.message}`);
+  }
 });

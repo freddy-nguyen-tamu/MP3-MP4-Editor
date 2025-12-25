@@ -346,4 +346,121 @@ export class FFmpegService {
     const ext = path.extname(filePath).toLowerCase();
     return ['.mp4', '.mkv', '.avi', '.mov', '.webm'].includes(ext);
   }
+
+  // Advanced merge for timeline segments with video+audio combinations
+  async mergeTimelineSegments(
+    segments: Array<{
+      path: string;
+      startTime: number;
+      endTime: number;
+      hasVideo: boolean;
+      hasAudio: boolean;
+    }>,
+    outputPath: string,
+    settings: MergeSettings = {},
+    onProgress?: (progress: { percent: number }) => void
+  ): Promise<boolean> {
+    return new Promise(async (resolve, reject) => {
+      const tempDir = app.getPath('temp');
+      const hasAnyVideo = segments.some(s => s.hasVideo);
+      
+      try {
+        // Process each segment individually first
+        const processedSegments: string[] = [];
+        
+        for (let i = 0; i < segments.length; i++) {
+          const segment = segments[i];
+          const tempOutput = path.join(tempDir, `segment-${i}-${Date.now()}${path.extname(segment.path)}`);
+          
+          // Cut segment to its time range
+          await this.cutMedia(
+            segment.path,
+            tempOutput,
+            segment.startTime,
+            segment.endTime,
+            { keepOriginalQuality: true }
+          );
+          
+          // If output needs video but this segment doesn't have it, add black video
+          if (hasAnyVideo && !segment.hasVideo) {
+            const withVideoPath = path.join(tempDir, `segment-video-${i}-${Date.now()}.mp4`);
+            await this.addBlackVideo(tempOutput, withVideoPath, segment.endTime - segment.startTime);
+            fs.unlinkSync(tempOutput);
+            processedSegments.push(withVideoPath);
+          } else {
+            processedSegments.push(tempOutput);
+          }
+        }
+        
+        // Now concatenate all processed segments
+        const listFilePath = path.join(tempDir, `concat-timeline-${Date.now()}.txt`);
+        const listContent = processedSegments.map(f => `file '${f.replace(/'/g, "'\\''")}'`).join('\n');
+        fs.writeFileSync(listFilePath, listContent);
+        
+        // Build merge command
+        this.currentCommand = ffmpeg()
+          .input(listFilePath)
+          .inputOptions(['-f concat', '-safe 0']);
+        
+        if (hasAnyVideo) {
+          this.currentCommand
+            .videoCodec(settings.videoCodec || 'libx264')
+            .audioCodec(settings.audioCodec || 'aac');
+        } else {
+          this.currentCommand.audioCodec(settings.audioCodec || 'libmp3lame');
+        }
+        
+        this.currentCommand
+          .on('progress', (progress: any) => {
+            if (onProgress && progress.percent) {
+              onProgress({ percent: Math.min(progress.percent, 100) });
+            }
+          })
+          .on('end', () => {
+            // Cleanup
+            fs.unlinkSync(listFilePath);
+            processedSegments.forEach(f => {
+              if (fs.existsSync(f)) fs.unlinkSync(f);
+            });
+            this.currentCommand = null;
+            resolve(true);
+          })
+          .on('error', (err: Error) => {
+            // Cleanup on error
+            if (fs.existsSync(listFilePath)) fs.unlinkSync(listFilePath);
+            processedSegments.forEach(f => {
+              if (fs.existsSync(f)) fs.unlinkSync(f);
+            });
+            this.currentCommand = null;
+            reject(err);
+          })
+          .save(outputPath);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  // Add black video to an audio file
+  private async addBlackVideo(
+    audioPath: string,
+    outputPath: string,
+    duration: number
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      ffmpeg()
+        .input(`color=c=black:s=1280x720:d=${duration}`)
+        .inputOptions(['-f lavfi'])
+        .input(audioPath)
+        .outputOptions([
+          '-c:v libx264',
+          '-c:a aac',
+          '-shortest',
+          '-pix_fmt yuv420p'
+        ])
+        .on('end', () => resolve())
+        .on('error', (err: Error) => reject(err))
+        .save(outputPath);
+    });
+  }
 }

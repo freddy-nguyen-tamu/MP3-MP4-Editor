@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   probeMedia: (filePath: string) => ipcRenderer.invoke('ffmpeg:probe', filePath),
   cutMedia: (options: any) => ipcRenderer.invoke('ffmpeg:cut', options),
   mergeMedia: (options: any) => ipcRenderer.invoke('ffmpeg:merge', options),
+  mergeTimelineSegments: (options: any) => ipcRenderer.invoke('ffmpeg:mergeTimeline', options),
   generateWaveform: (filePath: string, width: number, height: number) => 
     ipcRenderer.invoke('ffmpeg:generateWaveform', filePath, width, height),
   cancelFFmpeg: () => ipcRenderer.invoke('ffmpeg:cancel'),
@@ -38,6 +39,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   fileExists: (filePath: string) => ipcRenderer.invoke('fs:exists', filePath),
   getFileSize: (filePath: string) => ipcRenderer.invoke('fs:getFileSize', filePath),
   getAppPath: (name: string) => ipcRenderer.invoke('app:getPath', name),
+  readMediaFile: (filePath: string) => ipcRenderer.invoke('fs:readMediaFile', filePath),
 });
 
 declare global {
@@ -49,6 +51,7 @@ declare global {
       probeMedia: (filePath: string) => Promise<any>;
       cutMedia: (options: any) => Promise<any>;
       mergeMedia: (options: any) => Promise<any>;
+      mergeTimelineSegments: (options: any) => Promise<any>;
       generateWaveform: (filePath: string, width: number, height: number) => Promise<string>;
       cancelFFmpeg: () => Promise<void>;
       onFFmpegProgress: (callback: (progress: any) => void) => void;
@@ -62,6 +65,7 @@ declare global {
       fileExists: (filePath: string) => Promise<boolean>;
       getFileSize: (filePath: string) => Promise<number>;
       getAppPath: (name: string) => Promise<string>;
+      readMediaFile: (filePath: string) => Promise<string>;
     };
   }
 }

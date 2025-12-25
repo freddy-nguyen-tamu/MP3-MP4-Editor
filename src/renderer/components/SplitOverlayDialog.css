@@ -15,8 +15,8 @@
 .split-overlay-dialog {
   background: var(--bg-primary);
   border-radius: 12px;
-  width: 600px;
-  max-width: 90vw;
+  width: 800px;
+  max-width: 95vw;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   border: 1px solid var(--border-color);
 }
@@ -50,9 +50,9 @@
 }
 
 .split-overlay-dialog-options {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 .split-overlay-option {
@@ -76,11 +76,19 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.split-overlay-option.split:hover {
+.split-overlay-option.play-front:hover {
+  border-color: #4a9eff;
+}
+
+.split-overlay-option.play-behind:hover {
+  border-color: #ffa500;
+}
+
+.split-overlay-option.split-insert:hover {
   border-color: var(--primary-color);
 }
 
-.split-overlay-option.overlay:hover {
+.split-overlay-option.replace-segment:hover {
   border-color: var(--success-color);
 }
 
@@ -108,7 +116,19 @@
   border-left: 3px solid var(--primary-color);
 }
 
-.split-overlay-option.overlay .split-overlay-option-example {
+.split-overlay-option.play-front .split-overlay-option-example {
+  border-left-color: #4a9eff;
+}
+
+.split-overlay-option.play-behind .split-overlay-option-example {
+  border-left-color: #ffa500;
+}
+
+.split-overlay-option.split-insert .split-overlay-option-example {
+  border-left-color: var(--primary-color);
+}
+
+.split-overlay-option.replace-segment .split-overlay-option-example {
   border-left-color: var(--success-color);
 }
 

@@ -17,6 +17,7 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
   const [startCut, setStartCut] = useState(file.startCut);
   const [endCut, setEndCut] = useState(file.endCut);
   const [playMode, setPlayMode] = useState<'full' | 'selection' | 'fromStart'>('selection');
+  const [mediaDataUrl, setMediaDataUrl] = useState<string | null>(null);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -25,6 +26,13 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
 
   const isVideo = !!file.videoCodec;
   const mediaRef = isVideo ? videoRef : audioRef;
+
+  // Set media URL using custom protocol
+  useEffect(() => {
+    // Use custom protocol for better performance (no base64 encoding)
+    const mediaUrl = `media-file://${encodeURIComponent(file.path)}`;
+    setMediaDataUrl(mediaUrl);
+  }, [file.path]);
 
   // Load waveform for audio
   useEffect(() => {
@@ -310,7 +318,7 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
         {isVideo ? (
           <video
             ref={videoRef}
-            src={`file://${file.path}`}
+            src={mediaDataUrl || ''}
             className="timeline-video"
             onEnded={() => {
               setIsPlaying(false);
@@ -323,7 +331,7 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
           <>
             <audio
               ref={audioRef}
-              src={`file://${file.path}`}
+              src={mediaDataUrl || ''}
               onEnded={() => {
                 setIsPlaying(false);
                 setCurrentTime(0);
