@@ -169,7 +169,6 @@ function App() {
 
   // Create segments from files when entering multi-track mode
   const createSegmentsFromFiles = () => {
-    let currentPosition = 0;
     const newSegments: TimelineSegment[] = [];
     
     files.forEach((file, index) => {
@@ -179,19 +178,20 @@ function App() {
         fileId: file.id,
         startTime: file.startCut,
         endTime: file.endCut,
-        trackPosition: currentPosition,
+        trackPosition: index * 2, // Space them out initially
+        trackIndex: index % 4, // Distribute across 4 tracks
         duration: duration,
         file: file,
       };
       newSegments.push(segment);
-      currentPosition += duration;
       
       console.log('[INFO] Created segment:', {
         name: file.name,
         startTime: file.startCut,
         endTime: file.endCut,
         duration: duration,
-        trackPosition: segment.trackPosition
+        trackPosition: segment.trackPosition,
+        trackIndex: segment.trackIndex
       });
     });
     

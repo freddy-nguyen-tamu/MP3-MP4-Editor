@@ -21,8 +21,10 @@ export interface TimelineSegment {
   startTime: number;      // Start time in the source file
   endTime: number;        // End time in the source file
   trackPosition: number;  // Position on timeline (seconds from start)
+  trackIndex: number;     // Which track this segment is on (0, 1, 2, etc.)
   duration: number;       // Calculated duration (endTime - startTime)
   file: MediaFile;        // Reference to source file
+  isAudioOverlay?: boolean; // If true, this audio overlays video below it
 }
 
 export interface AppSettings {

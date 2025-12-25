@@ -18,6 +18,7 @@ interface MultiTrackTimelineProps {
   onSegmentsChange: (segments: TimelineSegment[]) => void;
   onSegmentSelect: (segment: TimelineSegment | null) => void;
   selectedSegment: TimelineSegment | null;
+  numTracks?: number; // Number of tracks to display
 }
 
 // Strong, distinct colors for segments
@@ -40,13 +41,20 @@ export default function MultiTrackTimeline({
   onSegmentsChange,
   onSegmentSelect,
   selectedSegment,
+  numTracks = 4, // Default 4 tracks
 }: MultiTrackTimelineProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [draggedSegmentId, setDraggedSegmentId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [dragStartTrack, setDragStartTrack] = useState(0);
   const timelineRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [scrollPosition, setScrollPosition] = useState(0);
+  const [showSplitPreview, setShowSplitPreview] = useState(false);
+  const [splitPreviewPosition, setSplitPreviewPosition] = useState({ x: 0, track: 0 });
+  
+  const TRACK_HEIGHT = 120;
+  const TRACK_MARGIN = 10;
   
   // Assign colors to files
   const getSegmentColor = (fileId: string) => {
@@ -69,12 +77,31 @@ export default function MultiTrackTimeline({
     
     const rect = timelineRef.current.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
     const segmentX = segment.trackPosition * pixelsPerSecond;
+    const segmentY = segment.trackIndex * (TRACK_HEIGHT + TRACK_MARGIN);
     
     setIsDragging(true);
     setDraggedSegmentId(segment.id);
-    setDragOffset({ x: clickX - segmentX, y: 0 });
+    setDragStartTrack(segment.trackIndex);
+    setDragOffset({ x: clickX - segmentX, y: clickY - segmentY });
     onSegmentSelect(segment);
+  };
+
+  // Check if dropping on another segment would split it
+  const checkForSplit = (draggedSeg: TimelineSegment, mouseX: number, mouseY: number) => {
+    const timePosition = mouseX / pixelsPerSecond;
+    const trackIndex = Math.floor(mouseY / (TRACK_HEIGHT + TRACK_MARGIN));
+    
+    // Find segment at this position on this track
+    const targetSegment = segments.find(seg => 
+      seg.id !== draggedSeg.id &&
+      seg.trackIndex === trackIndex &&
+      timePosition > seg.trackPosition &&
+      timePosition < seg.trackPosition + seg.duration
+    );
+    
+    return targetSegment ? { segment: targetSegment, splitTime: timePosition } : null;
   };
 
   useEffect(() => {
@@ -85,12 +112,27 @@ export default function MultiTrackTimeline({
       
       const rect = timelineRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left - dragOffset.x + scrollPosition;
-      const newPosition = Math.max(0, x / pixelsPerSecond);
+      const y = e.clientY - rect.top - dragOffset.y;
       
-      // Update segment position
+      const newPosition = Math.max(0, x / pixelsPerSecond);
+      const newTrackIndex = Math.max(0, Math.min(numTracks - 1, Math.floor(y / (TRACK_HEIGHT + TRACK_MARGIN))));
+      
+      // Check if we're hovering over another segment for potential split
+      const draggedSeg = segments.find(s => s.id === draggedSegmentId);
+      if (draggedSeg) {
+        const splitInfo = checkForSplit(draggedSeg, x, y);
+        if (splitInfo) {
+          setShowSplitPreview(true);
+          setSplitPreviewPosition({ x: splitInfo.splitTime * pixelsPerSecond, track: newTrackIndex });
+        } else {
+          setShowSplitPreview(false);
+        }
+      }
+      
+      // Update segment position and track
       const updatedSegments = segments.map(seg => {
         if (seg.id === draggedSegmentId) {
-          return { ...seg, trackPosition: newPosition };
+          return { ...seg, trackPosition: newPosition, trackIndex: newTrackIndex };
         }
         return seg;
       });
@@ -98,9 +140,26 @@ export default function MultiTrackTimeline({
       onSegmentsChange(updatedSegments);
     };
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!timelineRef.current) return;
+      
+      const rect = timelineRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left - dragOffset.x + scrollPosition;
+      const y = e.clientY - rect.top - dragOffset.y;
+      
+      const draggedSeg = segments.find(s => s.id === draggedSegmentId);
+      if (draggedSeg) {
+        const splitInfo = checkForSplit(draggedSeg, x, y);
+        
+        if (splitInfo) {
+          // User dropped on another segment - split it
+          handleSplitSegment(splitInfo.segment, splitInfo.splitTime, draggedSeg);
+        }
+      }
+      
       setIsDragging(false);
       setDraggedSegmentId(null);
+      setShowSplitPreview(false);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -110,7 +169,75 @@ export default function MultiTrackTimeline({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, draggedSegmentId, dragOffset, pixelsPerSecond, segments, scrollPosition]);
+  }, [isDragging, draggedSegmentId, dragOffset, pixelsPerSecond, segments, scrollPosition, numTracks]);
+
+  // Split a segment when another is dropped on it
+  const handleSplitSegment = (targetSegment: TimelineSegment, splitTime: number, droppedSegment: TimelineSegment) => {
+    const { v4: uuidv4 } = require('uuid');
+    
+    // Check if this is audio on video (overlay scenario)
+    const isAudioOnVideo = !droppedSegment.file.videoCodec && targetSegment.file.videoCodec;
+    
+    if (isAudioOnVideo) {
+      // Audio overlay: don't split, just mark the dropped segment as overlay
+      const updatedSegments = segments.map(seg => {
+        if (seg.id === droppedSegment.id) {
+          return { ...seg, isAudioOverlay: true };
+        }
+        return seg;
+      });
+      onSegmentsChange(updatedSegments);
+      console.log('[INFO] Audio overlay created on video segment');
+      return;
+    }
+    
+    // Otherwise, split the target segment
+    const splitPoint = splitTime - targetSegment.trackPosition;
+    const splitTimeInFile = targetSegment.startTime + splitPoint;
+    
+    if (splitPoint <= 0 || splitPoint >= targetSegment.duration) {
+      // Split point is at the edge, no split needed
+      return;
+    }
+    
+    console.log('[INFO] Splitting segment:', {
+      targetFile: targetSegment.file.name,
+      splitTime: splitTime,
+      splitPoint: splitPoint,
+      splitTimeInFile: splitTimeInFile
+    });
+    
+    // Create two new segments from the split
+    const firstPart: TimelineSegment = {
+      id: uuidv4(),
+      fileId: targetSegment.fileId,
+      startTime: targetSegment.startTime,
+      endTime: splitTimeInFile,
+      trackPosition: targetSegment.trackPosition,
+      trackIndex: targetSegment.trackIndex,
+      duration: splitPoint,
+      file: targetSegment.file,
+    };
+    
+    const secondPart: TimelineSegment = {
+      id: uuidv4(),
+      fileId: targetSegment.fileId,
+      startTime: splitTimeInFile,
+      endTime: targetSegment.endTime,
+      trackPosition: splitTime + droppedSegment.duration,
+      trackIndex: targetSegment.trackIndex,
+      duration: targetSegment.duration - splitPoint,
+      file: targetSegment.file,
+    };
+    
+    // Update segments: remove original, add two parts and the dropped segment
+    const updatedSegments = segments
+      .filter(seg => seg.id !== targetSegment.id)
+      .concat([firstPart, secondPart]);
+    
+    onSegmentsChange(updatedSegments);
+    console.log('[INFO] Segment split complete. Created 2 new segments.');
+  };
 
   const handleTimelineClick = (e: React.MouseEvent) => {
     if (isDragging) return;
@@ -156,25 +283,59 @@ export default function MultiTrackTimeline({
           })}
         </div>
 
-        {/* Track area */}
-        <div className="multi-track-area" style={{ width: `${Math.max(totalDuration + 10, 60) * pixelsPerSecond}px` }}>
+        {/* Multiple tracks */}
+        <div className="multi-track-tracks" style={{ width: `${Math.max(totalDuration + 10, 60) * pixelsPerSecond}px`, height: `${numTracks * (TRACK_HEIGHT + TRACK_MARGIN)}px` }}>
+          {/* Track backgrounds */}
+          {Array.from({ length: numTracks }).map((_, trackIdx) => (
+            <div
+              key={`track-${trackIdx}`}
+              className="multi-track-track"
+              style={{
+                top: `${trackIdx * (TRACK_HEIGHT + TRACK_MARGIN)}px`,
+                height: `${TRACK_HEIGHT}px`,
+              }}
+            >
+              <div className="multi-track-track-label">Track {trackIdx + 1}</div>
+            </div>
+          ))}
+          
+          {/* Split preview line */}
+          {showSplitPreview && (
+            <div
+              className="multi-track-split-preview"
+              style={{
+                left: `${splitPreviewPosition.x}px`,
+                top: `${splitPreviewPosition.track * (TRACK_HEIGHT + TRACK_MARGIN)}px`,
+                height: `${TRACK_HEIGHT}px`,
+              }}
+            />
+          )}
+          
+          {/* Segments */}
           {segments.map(segment => {
             const colors = getSegmentColor(segment.fileId);
             return (
               <div
                 key={segment.id}
-                className={`multi-track-segment ${selectedSegment?.id === segment.id ? 'selected' : ''} ${isDragging && draggedSegmentId === segment.id ? 'dragging' : ''}`}
+                className={`multi-track-segment ${selectedSegment?.id === segment.id ? 'selected' : ''} ${isDragging && draggedSegmentId === segment.id ? 'dragging' : ''} ${segment.isAudioOverlay ? 'audio-overlay' : ''}`}
                 style={{
                   left: `${segment.trackPosition * pixelsPerSecond}px`,
+                  top: `${segment.trackIndex * (TRACK_HEIGHT + TRACK_MARGIN)}px`,
                   width: `${Math.max(segment.duration * pixelsPerSecond, 40)}px`,
                   minWidth: '40px',
-                  background: `linear-gradient(135deg, ${colors.bg} 0%, ${colors.dark} 100%)`,
+                  height: `${TRACK_HEIGHT}px`,
+                  background: segment.isAudioOverlay 
+                    ? `linear-gradient(135deg, ${colors.bg}CC 0%, ${colors.dark}CC 100%)`
+                    : `linear-gradient(135deg, ${colors.bg} 0%, ${colors.dark} 100%)`,
                   borderColor: colors.dark,
                 }}
                 onMouseDown={(e) => handleSegmentMouseDown(e, segment)}
               >
                 <div className="multi-track-segment-content">
-                  <div className="multi-track-segment-name">{segment.file.name}</div>
+                  <div className="multi-track-segment-name">
+                    {segment.file.name}
+                    {segment.isAudioOverlay && <span className="overlay-badge">AUDIO OVERLAY</span>}
+                  </div>
                   <div className="multi-track-segment-time">
                     {formatTime(segment.startTime)} - {formatTime(segment.endTime)}
                   </div>

@@ -77,8 +77,7 @@
   line-height: 30px;
 }
 
-.multi-track-area {
-  height: 120px;
+.multi-track-tracks {
   position: relative;
   background: repeating-linear-gradient(
     90deg,
@@ -89,16 +88,52 @@
   );
 }
 
+.multi-track-track {
+  position: absolute;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.multi-track-track-label {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.multi-track-split-preview {
+  position: absolute;
+  width: 2px;
+  background: var(--warning-color);
+  box-shadow: 0 0 8px var(--warning-color);
+  z-index: 999;
+  pointer-events: none;
+  animation: pulse-split 0.5s ease-in-out infinite;
+}
+
+@keyframes pulse-split {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .multi-track-segment {
   position: absolute;
-  top: 10px;
-  height: 100px;
   border: 2px solid;
   border-radius: 6px;
   cursor: move;
   transition: transform 0.1s, box-shadow 0.2s;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.multi-track-segment.audio-overlay {
+  opacity: 0.9;
+  border-style: dashed;
+  border-width: 3px;
 }
 
 .multi-track-segment:hover {
@@ -141,6 +176,17 @@
 .multi-track-segment-duration {
   font-size: 11px;
   opacity: 0.8;
+}
+
+.overlay-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
 }
 
 .multi-track-info {
