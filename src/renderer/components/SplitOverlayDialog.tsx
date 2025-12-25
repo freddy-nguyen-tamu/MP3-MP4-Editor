@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import './SplitOverlayDialog.css';
 
 interface SplitOverlayDialogProps {

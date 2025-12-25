@@ -300,15 +300,15 @@ export default function MultiTrackTimeline({
       
       <div className="multi-track-timeline">
         <div className="multi-track-header">
-        <h3>Timeline Arrangement</h3>
-        <div className="multi-track-controls">
-          <button onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}>Zoom Out</button>
-          <span>Zoom: {Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom(Math.min(3, zoom + 0.25))}>Zoom In</button>
+          <h3>Timeline Arrangement</h3>
+          <div className="multi-track-controls">
+            <button onClick={() => setZoom(Math.max(0.5, zoom - 0.25))}>Zoom Out</button>
+            <span>Zoom: {Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom(Math.min(3, zoom + 0.25))}>Zoom In</button>
+          </div>
         </div>
-      </div>
 
-      <div 
+        <div 
         ref={timelineRef}
         className="multi-track-container"
         onClick={handleTimelineClick}
