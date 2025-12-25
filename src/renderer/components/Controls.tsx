@@ -41,7 +41,7 @@ export default function Controls({
             onClick={onExportCut}
             className="primary controls-btn"
           >
-            ✂️ Export Cut Selection
+            Export Cut Selection
           </button>
           
           {hasMultipleFiles && (
@@ -49,14 +49,14 @@ export default function Controls({
               onClick={onExportMerge}
               className="success controls-btn"
             >
-              🔗 Merge All Files ({files.length})
+              Merge All Files ({files.length})
             </button>
           )}
         </div>
       </div>
       
       <div className="controls-tips">
-        <h4>💡 Tips</h4>
+        <h4>Tips</h4>
         <ul>
           <li>Use the draggable START and END handles on the timeline to set your cut points</li>
           <li>Click "Play Selection" to preview only the selected region</li>

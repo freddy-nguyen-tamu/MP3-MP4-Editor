@@ -27,10 +27,10 @@ export default function Header({
       
       <div className="header-actions">
         <button onClick={onLoad} className="tooltip" data-tooltip="Open Project (Ctrl+O)">
-          📂 Open
+          Open Project
         </button>
         <button onClick={onSave} className="tooltip" data-tooltip="Save Project (Ctrl+S)">
-          💾 Save
+          Save Project
         </button>
         
         <div className="header-divider" />
@@ -55,7 +55,7 @@ export default function Header({
         <div className="header-divider" />
         
         <button onClick={onSettings} className="tooltip" data-tooltip="Settings">
-          ⚙️
+          Settings
         </button>
       </div>
     </header>

@@ -51,7 +51,7 @@ export default function SettingsDialog({
     <div className="settings-dialog-overlay" onClick={onClose}>
       <div className="settings-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="settings-dialog-header">
-          <h2>⚙️ Settings</h2>
+          <h2>Settings</h2>
           <button onClick={onClose} className="settings-dialog-close">×</button>
         </div>
 
@@ -123,7 +123,7 @@ export default function SettingsDialog({
                       </div>
                       <div className="settings-history-meta">
                         <span className="settings-history-type">
-                          {item.type === 'cut' ? '✂️ Cut' : '🔗 Merge'}
+                          {item.type === 'cut' ? 'Cut' : 'Merge'}
                         </span>
                         <span>•</span>
                         <span>{formatDate(item.timestamp)}</span>
@@ -134,7 +134,7 @@ export default function SettingsDialog({
                       className="settings-history-btn"
                       title="Open folder"
                     >
-                      📂
+                      Open
                     </button>
                   </div>
                 ))}

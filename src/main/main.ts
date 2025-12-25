@@ -18,6 +18,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
+      webSecurity: false, // Allow loading local files in development
     },
     backgroundColor: '#1a1a1a',
     show: false,

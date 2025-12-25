@@ -43,11 +43,13 @@ function App() {
     } else {
       console.error('[ERROR] Electron API is NOT available.');
       console.error('The preload script did not load correctly.');
+      // Only show alert after a longer delay to avoid false positives during hot reload
       setTimeout(() => {
         if (!window.electronAPI) {
+          console.error('[CRITICAL] Still no Electron API after 3 seconds');
           alert('CRITICAL ERROR: Electron API not loaded.\n\nPlease close the app and restart with:\nnpm run dev');
         }
-      }, 1000);
+      }, 3000);
     }
   }, []);
 

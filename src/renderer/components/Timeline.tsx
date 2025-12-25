@@ -308,7 +308,7 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
                 <img src={waveformData} alt="Waveform" className="timeline-waveform" />
               ) : (
                 <div className="timeline-audio-placeholder">
-                  <p>🎵 Audio File</p>
+                  <p>Audio File</p>
                   <p className="timeline-audio-name">{file.name}</p>
                 </div>
               )}
@@ -319,25 +319,25 @@ export default function Timeline({ file, onCutChange }: TimelineProps) {
       
       <div className="timeline-controls">
         <button onClick={handlePlayPause} className="timeline-control-btn primary">
-          {isPlaying ? '⏸' : '▶'} {isPlaying ? 'Pause' : 'Play'}
+          {isPlaying ? 'Pause' : 'Play'}
         </button>
         <button onClick={handlePlaySelection} className="timeline-control-btn success">
-          ▶ Play Selection
+          Play Selection
         </button>
         <button onClick={handlePlayFromStart} className="timeline-control-btn">
-          ▶ From Start Cut
+          From Start Cut
         </button>
         <button onClick={handlePlayFull} className="timeline-control-btn">
-          ▶ Full
+          Full
         </button>
         
         <div className="timeline-control-divider" />
         
         <button onClick={handleSetStart} className="timeline-control-btn" title="Set Start (I)">
-          ⏴ Set Start
+          Set Start
         </button>
         <button onClick={handleSetEnd} className="timeline-control-btn" title="Set End (O)">
-          Set End ⏵
+          Set End
         </button>
         <button onClick={handleResetCuts} className="timeline-control-btn">
           Reset Cuts

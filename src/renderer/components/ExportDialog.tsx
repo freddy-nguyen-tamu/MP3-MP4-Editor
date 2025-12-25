@@ -141,7 +141,7 @@ export default function ExportDialog({
     <div className="export-dialog-overlay" onClick={handleCancel}>
       <div className="export-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="export-dialog-header">
-          <h2>{mode === 'cut' ? '✂️ Export Cut' : '🔗 Merge Files'}</h2>
+          <h2>{mode === 'cut' ? 'Export Cut' : 'Merge Files'}</h2>
           <button onClick={handleCancel} className="export-dialog-close">×</button>
         </div>
 
@@ -271,7 +271,7 @@ export default function ExportDialog({
 
           {error && (
             <div className="export-dialog-error">
-              ⚠️ {error}
+              ERROR: {error}
             </div>
           )}
 
